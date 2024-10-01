@@ -1,9 +1,9 @@
 #!/bin/bash 
 
-# Function to append text after a matching line
-append_text_after_line() {
+# Function to insert text at a particular line number in a file
+append_text_at_line() {
     local file_path=$1
-    local search_text=$2
+    local line_number=$2
     local append_text=$3
 
     if [[ ! -f "$file_path" ]]; then
@@ -11,18 +11,16 @@ append_text_after_line() {
         return 1
     fi
 
-    # Check if search_text is found and append if found
-    if grep -q "$search_text" "$file_path"; then
-        awk -v search="$search_text" -v append="$append_text" '
-        { print }
-        $0 ~ search { print append }
-        ' "$file_path" > "${file_path}.tmp" && mv "${file_path}.tmp" "$file_path"
-        echo "Text appended successfully!"
+    # Count total number of lines in the file
+    total_lines=$(wc -l < "$file_path")
+
+    # Check if the line number is within the file's range
+    if (( line_number > 0 && line_number <= total_lines + 1 )); then
+        # Use awk to insert the text at the specific line number
+        awk -v append="$append_text" -v line="$line_number" 'NR == line {print append} {print}' "$file_path" > temp.md && mv temp.md "$file_path"
+
+        echo "Text appended successfully at line $line_number!"
     else
-        echo "Text not found in the file."
+        echo "Line number $line_number is out of range."
     fi
 }
-
-# Usage example:
-# Pass file path, search text, and text to append
-append_text_after_line "example.md" "Search Text" "Appended Text"
