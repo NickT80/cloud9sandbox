@@ -1,0 +1,44 @@
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: curl-with-pem-credentials
+spec:
+  entrypoint: pull-image-and-curl
+  templates:
+    - name: pull-image-and-curl
+      steps:
+        - - name: pull-image
+            template: docker-pull
+
+    - name: docker-pull
+      container:
+        image: "{{workflow.parameters.docker-image}}"
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            # Docker login
+            echo "Logging into Docker"
+            echo "${DOCKER_PASSWORD}" | docker login -u "${DOCKER_USERNAME}" --password-stdin
+
+            # Perform curl operation
+            curl -v --key /path/to/your/private.pem --cert /path/to/your/certificate.pem https://example.com/api-endpoint
+
+      volumeMounts:
+        - name: pem-credentials
+          mountPath: /path/to/your/ # This is where your .pem credentials are mounted
+      env:
+        - name: DOCKER_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: docker-credentials
+              key: username
+        - name: DOCKER_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: docker-credentials
+              key: password
+
+  volumes:
+    - name: pem-credentials
+      secret:
+        secretName: pem-credentials
