@@ -1,0 +1,36 @@
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: system-backup
+spec:
+  entrypoint: main
+  templates:
+    - name: main
+      steps:
+        - - name: trigger-backup
+            template: run-curl
+
+    - name: run-curl
+      container:
+        image: containeryard.com/my-namespace/curl-image:latest # Use your private registry image
+        env:
+          - name: API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: backup-credentials
+                key: API_KEY
+          - name: USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: backup-credentials
+                key: USERNAME
+        command: ["/bin/sh", "-c"]
+        args:
+          [
+            "curl -X POST https://your-backup-service-url/backup \
+             -H 'Content-Type: application/json' \
+             -H 'Authorization: Bearer $API_KEY' \
+             -d '{\"system\": \"your-system-name\", \"username\": \"$USERNAME\"}'"
+          ]
+  imagePullSecrets:
+    - name: containeryard-secret
