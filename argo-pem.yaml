@@ -1,0 +1,43 @@
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: containeryard-pull-and-curl
+spec:
+  entrypoint: pull-image-and-curl
+  templates:
+    - name: pull-image-and-curl
+      steps:
+        - - name: pull-image
+            template: docker-pull
+
+    - name: docker-pull
+      container:
+        image: "{{workflow.parameters.docker-image}}"
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            echo "Logging into ContainerYard"
+
+            # Perform login using the PEM credentials
+            curl -X POST https://containeryard.example.com/login \
+              --key /credentials/private-key.pem \
+              --cert /credentials/certificate.pem \
+              -d '{"username": "your-username"}'
+
+            # Pull the Docker image from ContainerYard
+            docker pull containeryard.example.com/{{workflow.parameters.docker-image}}
+
+            # Perform any curl operation after pulling the image
+            curl -v --key /credentials/private-key.pem --cert /credentials/certificate.pem https://example.com/api-endpoint
+
+      volumeMounts:
+        - name: pem-credentials
+          mountPath: /credentials # This is where your .pem credentials are mounted
+      env:
+        - name: CONTAINERYARD_USERNAME
+          value: "your-username" # Replace this with actual username or use a Kubernetes secret
+
+  volumes:
+    - name: pem-credentials
+      secret:
+        secretName: pem-credentials-secret # This is the Kubernetes secret containing the PEM files
