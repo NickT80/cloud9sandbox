@@ -1,0 +1,58 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: fetch-dash-db-data-
+spec:
+  entrypoint: fetch-uids
+  templates:
+    - name: fetch-uids
+      container:
+        image: alpine/curl
+        command: [ "/bin/sh", "-c" ]
+        args: ["| jq -r '.items[] | select(.type == \"dash-db\") | .uid' > uids.json"]
+      inputs:
+        artifacts:
+          - name: server-data
+            path: /data.json
+      outputs:
+        artifacts:
+          - name: uids
+            path: uids.json
+    - name: get-data
+      container:
+        image: alpine/curl
+        command: [ "curl", "-sSL" ]
+        args: ["{{inputs.url}}"]
+      outputs:
+        artifacts:
+          - name: server-data
+            path: data.json
+    - name: get-details
+      container:
+        image: alpine/curl
+        command: [ "/bin/sh", "-c" ]
+        args: ["while read -r uid; do curl \"{{inputs.url}}\"/$uid > \"$uid.json\"; done < uids.json"] 
+      inputs:
+        artifacts:
+          - name: uids
+            path: uids.json
+        parameters:
+          - name: url
+            value: ${{workflow.parameters.url}}
+
+  arguments:
+    parameters:
+      - name: url
+        type: string
+
+  steps:
+    - - name: get-data
+       - arguments:
+           parameters:
+             - url: ${{workflow.parameters.url}}
+    - - name: fetch-uids
+       - inputs:
+           artifacts:
+             - server-data: ${{templates.get-data.outputs.artifacts.server-data}}
+    - - name: get-details
+      
