@@ -1,0 +1,37 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: ssh-git-clone-
+spec:
+  entrypoint: main
+  volumes:
+    - name: ssh-key-volume
+      emptyDir: {}
+
+  templates:
+    - name: main
+      steps:
+        - - name: git-clone
+            template: git-clone
+
+    - name: git-clone
+      script:
+        image: alpine/git:latest
+        command: ["/bin/sh"]
+        source: |
+          #!/bin/sh
+          mkdir -p /root/.ssh
+          cp /mnt/ssh/id_rsa /root/.ssh/id_rsa
+          chmod 600 /root/.ssh/id_rsa
+          echo -e "Host *\n\tStrictHostKeyChecking no\n" > /root/.ssh/config
+          git clone <your-git-repo-url>
+
+        volumeMounts:
+          - name: ssh-key-volume
+            mountPath: /mnt/ssh
+        env:
+          - name: SSH_KEY
+            valueFrom:
+              secretKeyRef:
+                name: ssh-key-secret
+                key: id_rsa
